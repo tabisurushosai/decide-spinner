@@ -15,18 +15,29 @@ type ChoiceList = {
   choices: Choice[];
 };
 
+type HistoryEntry = {
+  id: string;
+  label: string;
+  listName: string;
+  selectedAt: string;
+};
+
 type StorageState = {
   lists: ChoiceList[];
   activeListId: string;
+  history: HistoryEntry[];
 };
 
 const LEGACY_CHOICES_STORAGE_KEY = "decideSpinnerChoices";
 const LISTS_STORAGE_KEY = "decideSpinnerLists";
 const ACTIVE_LIST_STORAGE_KEY = "decideSpinnerActiveListId";
+const HISTORY_STORAGE_KEY = "decideSpinnerHistory";
 const DEFAULT_LIST_NAME = "リスト 1";
+const HISTORY_LIMIT = 10;
 
 let choiceLists: ChoiceList[] = [];
 let activeListId = "";
+let historyEntries: HistoryEntry[] = [];
 let isSpinning = false;
 let listSelect: HTMLSelectElement | undefined;
 let deleteListButton: HTMLButtonElement | undefined;
@@ -34,12 +45,17 @@ let spinButton: HTMLButtonElement | undefined;
 let rouletteWheel: HTMLDivElement | undefined;
 let rouletteLabel: HTMLSpanElement | undefined;
 let result: HTMLDivElement | undefined;
+let historyList: HTMLUListElement | undefined;
+let historyEmptyMessage: HTMLParagraphElement | undefined;
 
 const createChoiceId = (): string =>
   `choice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 const createListId = (): string =>
   `list-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createHistoryId = (): string =>
+  `history-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 const isChoice = (value: unknown): value is Choice => {
   if (!value || typeof value !== "object") {
@@ -61,6 +77,20 @@ const isChoiceList = (value: unknown): value is ChoiceList => {
     typeof candidate.name === "string" &&
     Array.isArray(candidate.choices) &&
     candidate.choices.every(isChoice)
+  );
+};
+
+const isHistoryEntry = (value: unknown): value is HistoryEntry => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<HistoryEntry>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.label === "string" &&
+    typeof candidate.listName === "string" &&
+    typeof candidate.selectedAt === "string"
   );
 };
 
@@ -93,9 +123,14 @@ const loadState = async (): Promise<StorageState> => {
     LISTS_STORAGE_KEY,
     ACTIVE_LIST_STORAGE_KEY,
     LEGACY_CHOICES_STORAGE_KEY,
+    HISTORY_STORAGE_KEY,
   ]);
   const storedLists = stored[LISTS_STORAGE_KEY];
   const storedActiveListId = stored[ACTIVE_LIST_STORAGE_KEY];
+  const storedHistory = stored[HISTORY_STORAGE_KEY];
+  const history = Array.isArray(storedHistory)
+    ? storedHistory.filter(isHistoryEntry).slice(0, HISTORY_LIMIT)
+    : [];
 
   if (Array.isArray(storedLists)) {
     const lists = storedLists.filter(isChoiceList);
@@ -107,7 +142,7 @@ const loadState = async (): Promise<StorageState> => {
           ? storedActiveListId
           : lists[0].id;
 
-      return { lists, activeListId: activeId };
+      return { lists, activeListId: activeId, history };
     }
   }
 
@@ -118,13 +153,14 @@ const loadState = async (): Promise<StorageState> => {
     migratedList.choices = legacyChoices.filter(isChoice);
   }
 
-  return { lists: [migratedList], activeListId: migratedList.id };
+  return { lists: [migratedList], activeListId: migratedList.id, history };
 };
 
 const saveState = async (): Promise<void> => {
   await chrome.storage.local.set({
     [LISTS_STORAGE_KEY]: choiceLists,
     [ACTIVE_LIST_STORAGE_KEY]: activeListId,
+    [HISTORY_STORAGE_KEY]: historyEntries,
   });
 };
 
@@ -174,6 +210,46 @@ const updateSpinState = (): void => {
   }
 
   renderRouletteWheel();
+};
+
+const renderHistory = (): void => {
+  if (!historyList || !historyEmptyMessage) {
+    return;
+  }
+
+  historyList.replaceChildren();
+  historyEmptyMessage.hidden = historyEntries.length > 0;
+
+  for (const entry of historyEntries) {
+    const item = document.createElement("li");
+    item.className = "history-item";
+
+    const label = document.createElement("span");
+    label.className = "history-label";
+    label.textContent = entry.label;
+
+    const details = document.createElement("span");
+    details.className = "history-details";
+    details.textContent = `${entry.listName} / ${new Date(entry.selectedAt).toLocaleString()}`;
+
+    item.append(label, details);
+    historyList.append(item);
+  }
+};
+
+const addHistoryEntry = async (choice: Choice, list: ChoiceList): Promise<void> => {
+  historyEntries = [
+    {
+      id: createHistoryId(),
+      label: choice.label,
+      listName: list.name,
+      selectedAt: new Date().toISOString(),
+    },
+    ...historyEntries,
+  ].slice(0, HISTORY_LIMIT);
+
+  renderHistory();
+  await saveState();
 };
 
 const renderListControls = (): void => {
@@ -333,6 +409,36 @@ style.textContent = `
   }
 
   .choice-item span {
+    overflow-wrap: anywhere;
+  }
+
+  .history-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .history-item {
+    display: grid;
+    gap: 2px;
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 1px solid #e1e6ee;
+    border-radius: 6px;
+    background: #f9fbfd;
+  }
+
+  .history-label {
+    color: #1f2937;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .history-details {
+    color: #6b7280;
+    font-size: 12px;
     overflow-wrap: anywhere;
   }
 
@@ -530,6 +636,21 @@ const resultPanel = document.createElement("section");
 resultPanel.className = "panel";
 resultPanel.append(resultTitle, rouletteStage, spinButton, result);
 
+const historyTitle = document.createElement("p");
+historyTitle.className = "section-title";
+historyTitle.textContent = "履歴";
+
+historyEmptyMessage = document.createElement("p");
+historyEmptyMessage.className = "empty";
+historyEmptyMessage.textContent = "まだ履歴がありません。";
+
+historyList = document.createElement("ul");
+historyList.className = "history-list";
+
+const historyPanel = document.createElement("section");
+historyPanel.className = "panel";
+historyPanel.append(historyTitle, historyEmptyMessage, historyList);
+
 listSelect.addEventListener("change", () => {
   activeListId = listSelect?.value ?? activeListId;
   if (result) {
@@ -598,7 +719,8 @@ form.addEventListener("submit", (event) => {
 });
 
 spinButton.addEventListener("click", () => {
-  const choices = getActiveList().choices;
+  const activeList = getActiveList();
+  const choices = activeList.choices;
 
   if (isSpinning || choices.length === 0 || !rouletteWheel || !result) {
     return;
@@ -625,18 +747,21 @@ spinButton.addEventListener("click", () => {
     if (result) {
       result.textContent = selectedChoice.label;
     }
+    void addHistoryEntry(selectedChoice, activeList);
     updateSpinState();
   }, 1400);
 });
 
-app.append(choicePanel, resultPanel);
+app.append(choicePanel, resultPanel, historyPanel);
 
 const initialize = async (): Promise<void> => {
   const state = await loadState();
   choiceLists = state.lists.length > 0 ? state.lists : [createEmptyList()];
   activeListId = state.activeListId;
+  historyEntries = state.history;
   renderListControls();
   renderChoices(choiceList, emptyMessage);
+  renderHistory();
 };
 
 void initialize();
