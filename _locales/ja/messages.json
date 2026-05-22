@@ -107,5 +107,50 @@
         "content": "$1"
       }
     }
+  },
+  "premiumTitle": {
+    "message": "Premium"
+  },
+  "premiumFreeStatus": {
+    "message": "無料プランではリストは1つまでです。Premiumトライアルで複数リストと重み付けが使えます。"
+  },
+  "premiumActiveStatus": {
+    "message": "Premiumトライアル中です。残り$DAYS$日。",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumExpiredStatus": {
+    "message": "Premiumトライアルは終了しました。無料プランでは最初のリストだけ使えます。"
+  },
+  "startTrialButton": {
+    "message": "7日トライアル開始"
+  },
+  "trialActiveButton": {
+    "message": "トライアル中"
+  },
+  "trialExpiredButton": {
+    "message": "トライアル終了"
+  },
+  "checkoutUrlLabel": {
+    "message": "Stripe Checkout URL: $URL$",
+    "placeholders": {
+      "url": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumRequiredAlert": {
+    "message": "複数リストはPremium機能です。7日トライアルを開始してください。"
+  },
+  "weightInputAria": {
+    "message": "$CHOICE$ の重み",
+    "placeholders": {
+      "choice": {
+        "content": "$1"
+      }
+    }
   }
 }

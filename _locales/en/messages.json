@@ -107,5 +107,50 @@
         "content": "$1"
       }
     }
+  },
+  "premiumTitle": {
+    "message": "Premium"
+  },
+  "premiumFreeStatus": {
+    "message": "Free is limited to one list. Start the Premium trial for multiple lists and weighted picks."
+  },
+  "premiumActiveStatus": {
+    "message": "Premium trial is active. $DAYS$ day(s) left.",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumExpiredStatus": {
+    "message": "Premium trial has ended. Free mode can use the first list only."
+  },
+  "startTrialButton": {
+    "message": "Start 7-day trial"
+  },
+  "trialActiveButton": {
+    "message": "Trial active"
+  },
+  "trialExpiredButton": {
+    "message": "Trial ended"
+  },
+  "checkoutUrlLabel": {
+    "message": "Stripe Checkout URL: $URL$",
+    "placeholders": {
+      "url": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumRequiredAlert": {
+    "message": "Multiple lists are a Premium feature. Start the 7-day trial to use them."
+  },
+  "weightInputAria": {
+    "message": "$CHOICE$ weight",
+    "placeholders": {
+      "choice": {
+        "content": "$1"
+      }
+    }
   }
 }
