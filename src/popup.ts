@@ -22,22 +22,31 @@ type HistoryEntry = {
   selectedAt: string;
 };
 
+type CurrentResult = {
+  label: string;
+  listId: string;
+};
+
 type StorageState = {
   lists: ChoiceList[];
   activeListId: string;
   history: HistoryEntry[];
+  currentResult: CurrentResult | null;
 };
 
 const LEGACY_CHOICES_STORAGE_KEY = "decideSpinnerChoices";
 const LISTS_STORAGE_KEY = "decideSpinnerLists";
 const ACTIVE_LIST_STORAGE_KEY = "decideSpinnerActiveListId";
 const HISTORY_STORAGE_KEY = "decideSpinnerHistory";
+const CURRENT_RESULT_STORAGE_KEY = "decideSpinnerCurrentResult";
 const DEFAULT_LIST_NAME = "リスト 1";
+const DEFAULT_RESULT_TEXT = "ここに結果が表示されます。";
 const HISTORY_LIMIT = 10;
 
 let choiceLists: ChoiceList[] = [];
 let activeListId = "";
 let historyEntries: HistoryEntry[] = [];
+let currentResult: CurrentResult | null = null;
 let isSpinning = false;
 let listSelect: HTMLSelectElement | undefined;
 let deleteListButton: HTMLButtonElement | undefined;
@@ -94,6 +103,15 @@ const isHistoryEntry = (value: unknown): value is HistoryEntry => {
   );
 };
 
+const isCurrentResult = (value: unknown): value is CurrentResult => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<CurrentResult>;
+  return typeof candidate.label === "string" && typeof candidate.listId === "string";
+};
+
 const createEmptyList = (name = DEFAULT_LIST_NAME): ChoiceList => ({
   id: createListId(),
   name,
@@ -124,13 +142,16 @@ const loadState = async (): Promise<StorageState> => {
     ACTIVE_LIST_STORAGE_KEY,
     LEGACY_CHOICES_STORAGE_KEY,
     HISTORY_STORAGE_KEY,
+    CURRENT_RESULT_STORAGE_KEY,
   ]);
   const storedLists = stored[LISTS_STORAGE_KEY];
   const storedActiveListId = stored[ACTIVE_LIST_STORAGE_KEY];
   const storedHistory = stored[HISTORY_STORAGE_KEY];
+  const storedCurrentResult = stored[CURRENT_RESULT_STORAGE_KEY];
   const history = Array.isArray(storedHistory)
     ? storedHistory.filter(isHistoryEntry).slice(0, HISTORY_LIMIT)
     : [];
+  const resultState = isCurrentResult(storedCurrentResult) ? storedCurrentResult : null;
 
   if (Array.isArray(storedLists)) {
     const lists = storedLists.filter(isChoiceList);
@@ -141,8 +162,10 @@ const loadState = async (): Promise<StorageState> => {
         lists.some((list) => list.id === storedActiveListId)
           ? storedActiveListId
           : lists[0].id;
+      const currentResult =
+        resultState && resultState.listId === activeId ? resultState : null;
 
-      return { lists, activeListId: activeId, history };
+      return { lists, activeListId: activeId, history, currentResult };
     }
   }
 
@@ -153,7 +176,10 @@ const loadState = async (): Promise<StorageState> => {
     migratedList.choices = legacyChoices.filter(isChoice);
   }
 
-  return { lists: [migratedList], activeListId: migratedList.id, history };
+  const currentResult =
+    resultState && resultState.listId === migratedList.id ? resultState : null;
+
+  return { lists: [migratedList], activeListId: migratedList.id, history, currentResult };
 };
 
 const saveState = async (): Promise<void> => {
@@ -161,6 +187,7 @@ const saveState = async (): Promise<void> => {
     [LISTS_STORAGE_KEY]: choiceLists,
     [ACTIVE_LIST_STORAGE_KEY]: activeListId,
     [HISTORY_STORAGE_KEY]: historyEntries,
+    [CURRENT_RESULT_STORAGE_KEY]: currentResult,
   });
 };
 
@@ -210,6 +237,22 @@ const updateSpinState = (): void => {
   }
 
   renderRouletteWheel();
+};
+
+const renderResult = (): void => {
+  if (!result) {
+    return;
+  }
+
+  result.textContent =
+    currentResult && currentResult.listId === activeListId
+      ? currentResult.label
+      : DEFAULT_RESULT_TEXT;
+};
+
+const resetResult = (): void => {
+  currentResult = null;
+  renderResult();
 };
 
 const renderHistory = (): void => {
@@ -630,7 +673,7 @@ spinButton.disabled = true;
 result = document.createElement("div");
 result.className = "result";
 result.setAttribute("aria-live", "polite");
-result.textContent = "ここに結果が表示されます。";
+result.textContent = DEFAULT_RESULT_TEXT;
 
 const resultPanel = document.createElement("section");
 resultPanel.className = "panel";
@@ -653,9 +696,7 @@ historyPanel.append(historyTitle, historyEmptyMessage, historyList);
 
 listSelect.addEventListener("change", () => {
   activeListId = listSelect?.value ?? activeListId;
-  if (result) {
-    result.textContent = "ここに結果が表示されます。";
-  }
+  resetResult();
   void persistAndRender(choiceList, emptyMessage);
 });
 
@@ -669,9 +710,7 @@ newListButton.addEventListener("click", () => {
   const list = createEmptyList(name);
   choiceLists.push(list);
   activeListId = list.id;
-  if (result) {
-    result.textContent = "ここに結果が表示されます。";
-  }
+  resetResult();
   void persistAndRender(choiceList, emptyMessage);
 });
 
@@ -697,9 +736,7 @@ deleteListButton.addEventListener("click", () => {
   const nextLists = choiceLists.filter((list) => list.id !== activeList.id);
   choiceLists = nextLists.length > 0 ? nextLists : [createEmptyList()];
   activeListId = choiceLists[0].id;
-  if (result) {
-    result.textContent = "ここに結果が表示されます。";
-  }
+  resetResult();
   void persistAndRender(choiceList, emptyMessage);
 });
 
@@ -744,8 +781,9 @@ spinButton.addEventListener("click", () => {
     isSpinning = false;
     rouletteWheel?.classList.remove("is-spinning");
     rouletteWheel?.style.setProperty("transform", `rotate(${targetRotation}deg)`);
+    currentResult = { label: selectedChoice.label, listId: activeList.id };
     if (result) {
-      result.textContent = selectedChoice.label;
+      renderResult();
     }
     void addHistoryEntry(selectedChoice, activeList);
     updateSpinState();
@@ -759,8 +797,10 @@ const initialize = async (): Promise<void> => {
   choiceLists = state.lists.length > 0 ? state.lists : [createEmptyList()];
   activeListId = state.activeListId;
   historyEntries = state.history;
+  currentResult = state.currentResult;
   renderListControls();
   renderChoices(choiceList, emptyMessage);
+  renderResult();
   renderHistory();
 };
 
