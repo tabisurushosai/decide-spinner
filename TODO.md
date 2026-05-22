@@ -1,0 +1,12 @@
+# decide-spinner TODO
+- [ ] T001: src/popup.ts に popup骨格(選択肢入力 + 結果表示)を構築
+- [ ] T002: 選択肢リストのCRUDを chrome.storage.local に保存・読込
+- [ ] T003: CSSアニメのルーレット演出でランダムに1つ選択
+- [ ] T004: リストを複数保存・切替できるようにする
+- [ ] T005: 履歴(直近の結果)を表示
+- [ ] T006: 起動時に storage.local から全状態を復元
+- [ ] T007: _locales ja/en を chrome.i18n で全UIに適用
+- [ ] T008: Premiumゲート(7日トライアル + Stripe Checkout URL)。無料はリスト1つ、Premiumで複数リスト+重み付け
+- [ ] T009: npm run build を通し ts/lint を解消
+- [ ] T010: release/decide-spinner.zip 生成(node_modules除外)
+- [ ] T011: legal/PRIVACY.md と TERMS.md 作成(外部通信なし・データ収集なし)
