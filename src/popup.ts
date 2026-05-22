@@ -12,6 +12,11 @@ type Choice = {
 const STORAGE_KEY = "decideSpinnerChoices";
 
 let choices: Choice[] = [];
+let isSpinning = false;
+let spinButton: HTMLButtonElement | undefined;
+let rouletteWheel: HTMLDivElement | undefined;
+let rouletteLabel: HTMLSpanElement | undefined;
+let result: HTMLDivElement | undefined;
 
 const createChoiceId = (): string =>
   `choice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -46,6 +51,41 @@ const persistAndRender = async (
 ): Promise<void> => {
   await saveChoices();
   renderChoices(listElement, emptyElement);
+};
+
+const getChoiceColor = (index: number): string => {
+  const colors = ["#f97316", "#14b8a6", "#4f46e5", "#e11d48", "#84cc16", "#0ea5e9"];
+  return colors[index % colors.length];
+};
+
+const renderRouletteWheel = (): void => {
+  if (!rouletteWheel || !rouletteLabel) {
+    return;
+  }
+
+  if (choices.length === 0) {
+    rouletteWheel.style.background = "#eef2f7";
+    rouletteLabel.textContent = "-";
+    return;
+  }
+
+  const segmentSize = 100 / choices.length;
+  const stops = choices.map((_, index) => {
+    const start = segmentSize * index;
+    const end = segmentSize * (index + 1);
+    return `${getChoiceColor(index)} ${start}% ${end}%`;
+  });
+
+  rouletteWheel.style.background = `conic-gradient(${stops.join(", ")})`;
+  rouletteLabel.textContent = choices.length.toString();
+};
+
+const updateSpinState = (): void => {
+  if (spinButton) {
+    spinButton.disabled = choices.length === 0 || isSpinning;
+  }
+
+  renderRouletteWheel();
 };
 
 const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagraphElement): void => {
@@ -94,6 +134,8 @@ const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagrap
     item.append(label, editButton, removeButton);
     listElement.append(item);
   }
+
+  updateSpinState();
 };
 
 const style = document.createElement("style");
@@ -206,6 +248,66 @@ style.textContent = `
     text-align: center;
   }
 
+  .roulette-stage {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+  }
+
+  .roulette-pointer {
+    width: 0;
+    height: 0;
+    border-right: 9px solid transparent;
+    border-left: 9px solid transparent;
+    border-top: 14px solid #1f2937;
+    z-index: 1;
+  }
+
+  .roulette-wheel {
+    position: relative;
+    width: 156px;
+    height: 156px;
+    border: 6px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px #cfd8e3, 0 10px 24px rgb(31 41 55 / 16%);
+    transform: rotate(0deg);
+  }
+
+  .roulette-wheel.is-spinning {
+    animation: roulette-spin 1.4s cubic-bezier(0.12, 0.72, 0.18, 1) forwards;
+  }
+
+  .roulette-center {
+    position: absolute;
+    inset: 50%;
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    border: 1px solid #d7dee8;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 700;
+    transform: translate(-50%, -50%);
+  }
+
+  .spin-button {
+    width: 100%;
+  }
+
+  @keyframes roulette-spin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(var(--spin-target, 1080deg));
+    }
+  }
+
   .section-title {
     margin: 0;
     font-size: 13px;
@@ -256,14 +358,41 @@ const resultTitle = document.createElement("p");
 resultTitle.className = "section-title";
 resultTitle.textContent = "結果";
 
-const result = document.createElement("div");
+const rouletteStage = document.createElement("div");
+rouletteStage.className = "roulette-stage";
+
+const roulettePointer = document.createElement("div");
+roulettePointer.className = "roulette-pointer";
+roulettePointer.setAttribute("aria-hidden", "true");
+
+rouletteWheel = document.createElement("div");
+rouletteWheel.className = "roulette-wheel";
+rouletteWheel.setAttribute("aria-hidden", "true");
+
+const rouletteCenter = document.createElement("div");
+rouletteCenter.className = "roulette-center";
+
+rouletteLabel = document.createElement("span");
+rouletteLabel.textContent = "-";
+rouletteCenter.append(rouletteLabel);
+rouletteWheel.append(rouletteCenter);
+
+rouletteStage.append(roulettePointer, rouletteWheel);
+
+spinButton = document.createElement("button");
+spinButton.type = "button";
+spinButton.className = "spin-button";
+spinButton.textContent = "回す";
+spinButton.disabled = true;
+
+result = document.createElement("div");
 result.className = "result";
 result.setAttribute("aria-live", "polite");
 result.textContent = "ここに結果が表示されます。";
 
 const resultPanel = document.createElement("section");
 resultPanel.className = "panel";
-resultPanel.append(resultTitle, result);
+resultPanel.append(resultTitle, rouletteStage, spinButton, result);
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -278,6 +407,36 @@ form.addEventListener("submit", (event) => {
   input.value = "";
   void persistAndRender(choiceList, emptyMessage);
   input.focus();
+});
+
+spinButton.addEventListener("click", () => {
+  if (isSpinning || choices.length === 0 || !rouletteWheel || !result) {
+    return;
+  }
+
+  const selectedIndex = Math.floor(Math.random() * choices.length);
+  const selectedChoice = choices[selectedIndex];
+  const segmentAngle = 360 / choices.length;
+  const segmentCenter = selectedIndex * segmentAngle + segmentAngle / 2;
+  const targetRotation = 360 * 4 + (360 - segmentCenter);
+
+  isSpinning = true;
+  result.textContent = "選んでいます...";
+  rouletteWheel.classList.remove("is-spinning");
+  rouletteWheel.style.setProperty("--spin-target", `${targetRotation}deg`);
+  void rouletteWheel.offsetWidth;
+  rouletteWheel.classList.add("is-spinning");
+  updateSpinState();
+
+  window.setTimeout(() => {
+    isSpinning = false;
+    rouletteWheel?.classList.remove("is-spinning");
+    rouletteWheel?.style.setProperty("transform", `rotate(${targetRotation}deg)`);
+    if (result) {
+      result.textContent = selectedChoice.label;
+    }
+    updateSpinState();
+  }, 1400);
 });
 
 app.append(choicePanel, resultPanel);
