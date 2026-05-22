@@ -1,5 +1,5 @@
 # decide-spinner TODO
-- [ ] T001: src/popup.ts に popup骨格(選択肢入力 + 結果表示)を構築
+- [x] T001: src/popup.ts に popup骨格(選択肢入力 + 結果表示)を構築
 - [ ] T002: 選択肢リストのCRUDを chrome.storage.local に保存・読込
 - [ ] T003: CSSアニメのルーレット演出でランダムに1つ選択
 - [ ] T004: リストを複数保存・切替できるようにする
