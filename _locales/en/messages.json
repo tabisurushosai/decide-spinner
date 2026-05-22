@@ -1,1 +1,111 @@
-{ "extName": { "message": "Decide Spinner" }, "extDesc": { "message": "Enter options and pick one at random. A tiebreaker when you can't decide. Fully offline." } }
+{
+  "extName": {
+    "message": "Decide Spinner"
+  },
+  "extDesc": {
+    "message": "Enter options and pick one at random. A tiebreaker when you can't decide. Fully offline."
+  },
+  "defaultListName": {
+    "message": "List 1"
+  },
+  "defaultListNameWithNumber": {
+    "message": "List $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "defaultResultText": {
+    "message": "The result will appear here."
+  },
+  "selectListAria": {
+    "message": "Select list"
+  },
+  "newListButton": {
+    "message": "New"
+  },
+  "renameListButton": {
+    "message": "Name"
+  },
+  "deleteListButton": {
+    "message": "Delete"
+  },
+  "choiceInputPlaceholder": {
+    "message": "Enter an option"
+  },
+  "choiceInputAria": {
+    "message": "Option"
+  },
+  "addChoiceButton": {
+    "message": "Add"
+  },
+  "choicesTitle": {
+    "message": "Options"
+  },
+  "emptyChoicesText": {
+    "message": "No options yet."
+  },
+  "resultTitle": {
+    "message": "Result"
+  },
+  "spinButton": {
+    "message": "Spin"
+  },
+  "spinningText": {
+    "message": "Choosing..."
+  },
+  "historyTitle": {
+    "message": "History"
+  },
+  "emptyHistoryText": {
+    "message": "No history yet."
+  },
+  "historyDetails": {
+    "message": "$LIST$ / $DATE$",
+    "placeholders": {
+      "list": {
+        "content": "$1"
+      },
+      "date": {
+        "content": "$2"
+      }
+    }
+  },
+  "editChoiceButton": {
+    "message": "Edit"
+  },
+  "editChoiceAria": {
+    "message": "Edit $CHOICE$",
+    "placeholders": {
+      "choice": {
+        "content": "$1"
+      }
+    }
+  },
+  "editChoicePrompt": {
+    "message": "Edit option"
+  },
+  "deleteChoiceAria": {
+    "message": "Delete $CHOICE$",
+    "placeholders": {
+      "choice": {
+        "content": "$1"
+      }
+    }
+  },
+  "newListPrompt": {
+    "message": "New list name"
+  },
+  "renameListPrompt": {
+    "message": "Edit list name"
+  },
+  "deleteListConfirm": {
+    "message": "Delete $LIST$?",
+    "placeholders": {
+      "list": {
+        "content": "$1"
+      }
+    }
+  }
+}

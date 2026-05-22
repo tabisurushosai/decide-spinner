@@ -4,6 +4,11 @@ if (!app) {
   throw new Error("Popup root element was not found.");
 }
 
+const t = (key: string, substitutions?: string | string[]): string => {
+  const message = chrome.i18n.getMessage(key, substitutions);
+  return message || key;
+};
+
 type Choice = {
   id: string;
   label: string;
@@ -39,8 +44,8 @@ const LISTS_STORAGE_KEY = "decideSpinnerLists";
 const ACTIVE_LIST_STORAGE_KEY = "decideSpinnerActiveListId";
 const HISTORY_STORAGE_KEY = "decideSpinnerHistory";
 const CURRENT_RESULT_STORAGE_KEY = "decideSpinnerCurrentResult";
-const DEFAULT_LIST_NAME = "リスト 1";
-const DEFAULT_RESULT_TEXT = "ここに結果が表示されます。";
+const DEFAULT_LIST_NAME = t("defaultListName");
+const DEFAULT_RESULT_TEXT = t("defaultResultText");
 const HISTORY_LIMIT = 10;
 
 let choiceLists: ChoiceList[] = [];
@@ -273,7 +278,10 @@ const renderHistory = (): void => {
 
     const details = document.createElement("span");
     details.className = "history-details";
-    details.textContent = `${entry.listName} / ${new Date(entry.selectedAt).toLocaleString()}`;
+    details.textContent = t("historyDetails", [
+      entry.listName,
+      new Date(entry.selectedAt).toLocaleString(chrome.i18n.getUILanguage()),
+    ]);
 
     item.append(label, details);
     historyList.append(item);
@@ -330,10 +338,10 @@ const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagrap
     const editButton = document.createElement("button");
     editButton.type = "button";
     editButton.className = "action-button";
-    editButton.setAttribute("aria-label", `${choice.label} を編集`);
-    editButton.textContent = "編集";
+    editButton.setAttribute("aria-label", t("editChoiceAria", choice.label));
+    editButton.textContent = t("editChoiceButton");
     editButton.addEventListener("click", () => {
-      const nextLabel = window.prompt("選択肢を編集", choice.label)?.trim();
+      const nextLabel = window.prompt(t("editChoicePrompt"), choice.label)?.trim();
       if (!nextLabel) {
         return;
       }
@@ -348,7 +356,7 @@ const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagrap
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "icon-button";
-    removeButton.setAttribute("aria-label", `${choice.label} を削除`);
+    removeButton.setAttribute("aria-label", t("deleteChoiceAria", choice.label));
     removeButton.textContent = "x";
     removeButton.addEventListener("click", () => {
       const index = choices.findIndex((entry) => entry.id === choice.id);
@@ -590,20 +598,24 @@ document.head.append(style);
 
 app.replaceChildren();
 
+document.documentElement.lang = chrome.i18n.getUILanguage();
+document.title = t("extName");
+document.querySelector("h3")?.replaceChildren(t("extName"));
+
 listSelect = document.createElement("select");
-listSelect.setAttribute("aria-label", "リストを選択");
+listSelect.setAttribute("aria-label", t("selectListAria"));
 
 const newListButton = document.createElement("button");
 newListButton.type = "button";
-newListButton.textContent = "新規";
+newListButton.textContent = t("newListButton");
 
 const renameListButton = document.createElement("button");
 renameListButton.type = "button";
-renameListButton.textContent = "名前";
+renameListButton.textContent = t("renameListButton");
 
 deleteListButton = document.createElement("button");
 deleteListButton.type = "button";
-deleteListButton.textContent = "削除";
+deleteListButton.textContent = t("deleteListButton");
 
 const listControls = document.createElement("div");
 listControls.className = "list-row";
@@ -611,14 +623,14 @@ listControls.append(listSelect, newListButton, renameListButton, deleteListButto
 
 const input = document.createElement("input");
 input.type = "text";
-input.placeholder = "選択肢を入力";
+input.placeholder = t("choiceInputPlaceholder");
 input.autocomplete = "off";
 input.maxLength = 80;
-input.setAttribute("aria-label", "選択肢");
+input.setAttribute("aria-label", t("choiceInputAria"));
 
 const addButton = document.createElement("button");
 addButton.type = "submit";
-addButton.textContent = "追加";
+addButton.textContent = t("addChoiceButton");
 
 const form = document.createElement("form");
 form.className = "field-row";
@@ -626,11 +638,11 @@ form.append(input, addButton);
 
 const listTitle = document.createElement("p");
 listTitle.className = "section-title";
-listTitle.textContent = "選択肢";
+listTitle.textContent = t("choicesTitle");
 
 const emptyMessage = document.createElement("p");
 emptyMessage.className = "empty";
-emptyMessage.textContent = "まだ選択肢がありません。";
+emptyMessage.textContent = t("emptyChoicesText");
 
 const choiceList = document.createElement("ul");
 choiceList.className = "choice-list";
@@ -641,7 +653,7 @@ choicePanel.append(listControls, form, listTitle, emptyMessage, choiceList);
 
 const resultTitle = document.createElement("p");
 resultTitle.className = "section-title";
-resultTitle.textContent = "結果";
+resultTitle.textContent = t("resultTitle");
 
 const rouletteStage = document.createElement("div");
 rouletteStage.className = "roulette-stage";
@@ -667,7 +679,7 @@ rouletteStage.append(roulettePointer, rouletteWheel);
 spinButton = document.createElement("button");
 spinButton.type = "button";
 spinButton.className = "spin-button";
-spinButton.textContent = "回す";
+spinButton.textContent = t("spinButton");
 spinButton.disabled = true;
 
 result = document.createElement("div");
@@ -681,11 +693,11 @@ resultPanel.append(resultTitle, rouletteStage, spinButton, result);
 
 const historyTitle = document.createElement("p");
 historyTitle.className = "section-title";
-historyTitle.textContent = "履歴";
+historyTitle.textContent = t("historyTitle");
 
 historyEmptyMessage = document.createElement("p");
 historyEmptyMessage.className = "empty";
-historyEmptyMessage.textContent = "まだ履歴がありません。";
+historyEmptyMessage.textContent = t("emptyHistoryText");
 
 historyList = document.createElement("ul");
 historyList.className = "history-list";
@@ -701,7 +713,9 @@ listSelect.addEventListener("change", () => {
 });
 
 newListButton.addEventListener("click", () => {
-  const name = window.prompt("新しいリスト名", `リスト ${choiceLists.length + 1}`)?.trim();
+  const name = window
+    .prompt(t("newListPrompt"), t("defaultListNameWithNumber", String(choiceLists.length + 1)))
+    ?.trim();
 
   if (!name) {
     return;
@@ -716,7 +730,7 @@ newListButton.addEventListener("click", () => {
 
 renameListButton.addEventListener("click", () => {
   const activeList = getActiveList();
-  const name = window.prompt("リスト名を編集", activeList.name)?.trim();
+  const name = window.prompt(t("renameListPrompt"), activeList.name)?.trim();
 
   if (!name) {
     return;
@@ -729,7 +743,7 @@ renameListButton.addEventListener("click", () => {
 deleteListButton.addEventListener("click", () => {
   const activeList = getActiveList();
 
-  if (choiceLists.length <= 1 || !window.confirm(`${activeList.name} を削除しますか？`)) {
+  if (choiceLists.length <= 1 || !window.confirm(t("deleteListConfirm", activeList.name))) {
     return;
   }
 
@@ -770,7 +784,7 @@ spinButton.addEventListener("click", () => {
   const targetRotation = 360 * 4 + (360 - segmentCenter);
 
   isSpinning = true;
-  result.textContent = "選んでいます...";
+  result.textContent = t("spinningText");
   rouletteWheel.classList.remove("is-spinning");
   rouletteWheel.style.setProperty("--spin-target", `${targetRotation}deg`);
   void rouletteWheel.offsetWidth;

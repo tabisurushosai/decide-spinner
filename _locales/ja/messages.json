@@ -1,1 +1,111 @@
-{ "extName": { "message": "きめてルーレット" }, "extDesc": { "message": "選択肢を入れてランダムに1つ選ぶ。迷ったときの決め手に。完全オフライン。" } }
+{
+  "extName": {
+    "message": "きめてルーレット"
+  },
+  "extDesc": {
+    "message": "選択肢を入れてランダムに1つ選ぶ。迷ったときの決め手に。完全オフライン。"
+  },
+  "defaultListName": {
+    "message": "リスト 1"
+  },
+  "defaultListNameWithNumber": {
+    "message": "リスト $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "defaultResultText": {
+    "message": "ここに結果が表示されます。"
+  },
+  "selectListAria": {
+    "message": "リストを選択"
+  },
+  "newListButton": {
+    "message": "新規"
+  },
+  "renameListButton": {
+    "message": "名前"
+  },
+  "deleteListButton": {
+    "message": "削除"
+  },
+  "choiceInputPlaceholder": {
+    "message": "選択肢を入力"
+  },
+  "choiceInputAria": {
+    "message": "選択肢"
+  },
+  "addChoiceButton": {
+    "message": "追加"
+  },
+  "choicesTitle": {
+    "message": "選択肢"
+  },
+  "emptyChoicesText": {
+    "message": "まだ選択肢がありません。"
+  },
+  "resultTitle": {
+    "message": "結果"
+  },
+  "spinButton": {
+    "message": "回す"
+  },
+  "spinningText": {
+    "message": "選んでいます..."
+  },
+  "historyTitle": {
+    "message": "履歴"
+  },
+  "emptyHistoryText": {
+    "message": "まだ履歴がありません。"
+  },
+  "historyDetails": {
+    "message": "$LIST$ / $DATE$",
+    "placeholders": {
+      "list": {
+        "content": "$1"
+      },
+      "date": {
+        "content": "$2"
+      }
+    }
+  },
+  "editChoiceButton": {
+    "message": "編集"
+  },
+  "editChoiceAria": {
+    "message": "$CHOICE$ を編集",
+    "placeholders": {
+      "choice": {
+        "content": "$1"
+      }
+    }
+  },
+  "editChoicePrompt": {
+    "message": "選択肢を編集"
+  },
+  "deleteChoiceAria": {
+    "message": "$CHOICE$ を削除",
+    "placeholders": {
+      "choice": {
+        "content": "$1"
+      }
+    }
+  },
+  "newListPrompt": {
+    "message": "新しいリスト名"
+  },
+  "renameListPrompt": {
+    "message": "リスト名を編集"
+  },
+  "deleteListConfirm": {
+    "message": "$LIST$ を削除しますか？",
+    "placeholders": {
+      "list": {
+        "content": "$1"
+      }
+    }
+  }
+}
