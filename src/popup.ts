@@ -9,10 +9,27 @@ type Choice = {
   label: string;
 };
 
-const STORAGE_KEY = "decideSpinnerChoices";
+type ChoiceList = {
+  id: string;
+  name: string;
+  choices: Choice[];
+};
 
-let choices: Choice[] = [];
+type StorageState = {
+  lists: ChoiceList[];
+  activeListId: string;
+};
+
+const LEGACY_CHOICES_STORAGE_KEY = "decideSpinnerChoices";
+const LISTS_STORAGE_KEY = "decideSpinnerLists";
+const ACTIVE_LIST_STORAGE_KEY = "decideSpinnerActiveListId";
+const DEFAULT_LIST_NAME = "リスト 1";
+
+let choiceLists: ChoiceList[] = [];
+let activeListId = "";
 let isSpinning = false;
+let listSelect: HTMLSelectElement | undefined;
+let deleteListButton: HTMLButtonElement | undefined;
 let spinButton: HTMLButtonElement | undefined;
 let rouletteWheel: HTMLDivElement | undefined;
 let rouletteLabel: HTMLSpanElement | undefined;
@@ -20,6 +37,9 @@ let result: HTMLDivElement | undefined;
 
 const createChoiceId = (): string =>
   `choice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createListId = (): string =>
+  `list-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 const isChoice = (value: unknown): value is Choice => {
   if (!value || typeof value !== "object") {
@@ -30,26 +50,90 @@ const isChoice = (value: unknown): value is Choice => {
   return typeof candidate.id === "string" && typeof candidate.label === "string";
 };
 
-const loadChoices = async (): Promise<Choice[]> => {
-  const stored = await chrome.storage.local.get(STORAGE_KEY);
-  const value = stored[STORAGE_KEY];
-
-  if (!Array.isArray(value)) {
-    return [];
+const isChoiceList = (value: unknown): value is ChoiceList => {
+  if (!value || typeof value !== "object") {
+    return false;
   }
 
-  return value.filter(isChoice);
+  const candidate = value as Partial<ChoiceList>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    Array.isArray(candidate.choices) &&
+    candidate.choices.every(isChoice)
+  );
 };
 
-const saveChoices = async (): Promise<void> => {
-  await chrome.storage.local.set({ [STORAGE_KEY]: choices });
+const createEmptyList = (name = DEFAULT_LIST_NAME): ChoiceList => ({
+  id: createListId(),
+  name,
+  choices: [],
+});
+
+const getActiveList = (): ChoiceList => {
+  if (choiceLists.length === 0) {
+    const list = createEmptyList();
+    choiceLists = [list];
+    activeListId = list.id;
+    return list;
+  }
+
+  let activeList = choiceLists.find((list) => list.id === activeListId);
+
+  if (!activeList) {
+    activeList = choiceLists[0];
+    activeListId = activeList.id;
+  }
+
+  return activeList;
+};
+
+const loadState = async (): Promise<StorageState> => {
+  const stored = await chrome.storage.local.get([
+    LISTS_STORAGE_KEY,
+    ACTIVE_LIST_STORAGE_KEY,
+    LEGACY_CHOICES_STORAGE_KEY,
+  ]);
+  const storedLists = stored[LISTS_STORAGE_KEY];
+  const storedActiveListId = stored[ACTIVE_LIST_STORAGE_KEY];
+
+  if (Array.isArray(storedLists)) {
+    const lists = storedLists.filter(isChoiceList);
+
+    if (lists.length > 0) {
+      const activeId =
+        typeof storedActiveListId === "string" &&
+        lists.some((list) => list.id === storedActiveListId)
+          ? storedActiveListId
+          : lists[0].id;
+
+      return { lists, activeListId: activeId };
+    }
+  }
+
+  const legacyChoices = stored[LEGACY_CHOICES_STORAGE_KEY];
+  const migratedList = createEmptyList();
+
+  if (Array.isArray(legacyChoices)) {
+    migratedList.choices = legacyChoices.filter(isChoice);
+  }
+
+  return { lists: [migratedList], activeListId: migratedList.id };
+};
+
+const saveState = async (): Promise<void> => {
+  await chrome.storage.local.set({
+    [LISTS_STORAGE_KEY]: choiceLists,
+    [ACTIVE_LIST_STORAGE_KEY]: activeListId,
+  });
 };
 
 const persistAndRender = async (
   listElement: HTMLUListElement,
   emptyElement: HTMLParagraphElement,
 ): Promise<void> => {
-  await saveChoices();
+  await saveState();
+  renderListControls();
   renderChoices(listElement, emptyElement);
 };
 
@@ -62,6 +146,8 @@ const renderRouletteWheel = (): void => {
   if (!rouletteWheel || !rouletteLabel) {
     return;
   }
+
+  const choices = getActiveList().choices;
 
   if (choices.length === 0) {
     rouletteWheel.style.background = "#eef2f7";
@@ -81,6 +167,8 @@ const renderRouletteWheel = (): void => {
 };
 
 const updateSpinState = (): void => {
+  const choices = getActiveList().choices;
+
   if (spinButton) {
     spinButton.disabled = choices.length === 0 || isSpinning;
   }
@@ -88,7 +176,27 @@ const updateSpinState = (): void => {
   renderRouletteWheel();
 };
 
+const renderListControls = (): void => {
+  if (!listSelect || !deleteListButton) {
+    return;
+  }
+
+  listSelect.replaceChildren();
+
+  for (const list of choiceLists) {
+    const option = document.createElement("option");
+    option.value = list.id;
+    option.textContent = list.name;
+    listSelect.append(option);
+  }
+
+  listSelect.value = activeListId;
+  deleteListButton.disabled = choiceLists.length <= 1;
+};
+
 const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagraphElement): void => {
+  const choices = getActiveList().choices;
+
   listElement.replaceChildren();
 
   emptyElement.hidden = choices.length > 0;
@@ -169,16 +277,25 @@ style.textContent = `
     gap: 8px;
   }
 
+  .list-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    gap: 8px;
+  }
+
   input,
+  select,
   button {
     font: inherit;
   }
 
-  input {
+  input,
+  select {
     min-width: 0;
     padding: 9px 10px;
     border: 1px solid #b9c2d0;
     border-radius: 6px;
+    background: #ffffff;
   }
 
   button {
@@ -324,6 +441,25 @@ document.head.append(style);
 
 app.replaceChildren();
 
+listSelect = document.createElement("select");
+listSelect.setAttribute("aria-label", "リストを選択");
+
+const newListButton = document.createElement("button");
+newListButton.type = "button";
+newListButton.textContent = "新規";
+
+const renameListButton = document.createElement("button");
+renameListButton.type = "button";
+renameListButton.textContent = "名前";
+
+deleteListButton = document.createElement("button");
+deleteListButton.type = "button";
+deleteListButton.textContent = "削除";
+
+const listControls = document.createElement("div");
+listControls.className = "list-row";
+listControls.append(listSelect, newListButton, renameListButton, deleteListButton);
+
 const input = document.createElement("input");
 input.type = "text";
 input.placeholder = "選択肢を入力";
@@ -352,7 +488,7 @@ choiceList.className = "choice-list";
 
 const choicePanel = document.createElement("section");
 choicePanel.className = "panel";
-choicePanel.append(form, listTitle, emptyMessage, choiceList);
+choicePanel.append(listControls, form, listTitle, emptyMessage, choiceList);
 
 const resultTitle = document.createElement("p");
 resultTitle.className = "section-title";
@@ -394,6 +530,58 @@ const resultPanel = document.createElement("section");
 resultPanel.className = "panel";
 resultPanel.append(resultTitle, rouletteStage, spinButton, result);
 
+listSelect.addEventListener("change", () => {
+  activeListId = listSelect?.value ?? activeListId;
+  if (result) {
+    result.textContent = "ここに結果が表示されます。";
+  }
+  void persistAndRender(choiceList, emptyMessage);
+});
+
+newListButton.addEventListener("click", () => {
+  const name = window.prompt("新しいリスト名", `リスト ${choiceLists.length + 1}`)?.trim();
+
+  if (!name) {
+    return;
+  }
+
+  const list = createEmptyList(name);
+  choiceLists.push(list);
+  activeListId = list.id;
+  if (result) {
+    result.textContent = "ここに結果が表示されます。";
+  }
+  void persistAndRender(choiceList, emptyMessage);
+});
+
+renameListButton.addEventListener("click", () => {
+  const activeList = getActiveList();
+  const name = window.prompt("リスト名を編集", activeList.name)?.trim();
+
+  if (!name) {
+    return;
+  }
+
+  activeList.name = name;
+  void persistAndRender(choiceList, emptyMessage);
+});
+
+deleteListButton.addEventListener("click", () => {
+  const activeList = getActiveList();
+
+  if (choiceLists.length <= 1 || !window.confirm(`${activeList.name} を削除しますか？`)) {
+    return;
+  }
+
+  const nextLists = choiceLists.filter((list) => list.id !== activeList.id);
+  choiceLists = nextLists.length > 0 ? nextLists : [createEmptyList()];
+  activeListId = choiceLists[0].id;
+  if (result) {
+    result.textContent = "ここに結果が表示されます。";
+  }
+  void persistAndRender(choiceList, emptyMessage);
+});
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -403,13 +591,15 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  choices.push({ id: createChoiceId(), label });
+  getActiveList().choices.push({ id: createChoiceId(), label });
   input.value = "";
   void persistAndRender(choiceList, emptyMessage);
   input.focus();
 });
 
 spinButton.addEventListener("click", () => {
+  const choices = getActiveList().choices;
+
   if (isSpinning || choices.length === 0 || !rouletteWheel || !result) {
     return;
   }
@@ -442,7 +632,10 @@ spinButton.addEventListener("click", () => {
 app.append(choicePanel, resultPanel);
 
 const initialize = async (): Promise<void> => {
-  choices = await loadChoices();
+  const state = await loadState();
+  choiceLists = state.lists.length > 0 ? state.lists : [createEmptyList()];
+  activeListId = state.activeListId;
+  renderListControls();
   renderChoices(choiceList, emptyMessage);
 };
 
