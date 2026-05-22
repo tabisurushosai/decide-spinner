@@ -9,10 +9,44 @@ type Choice = {
   label: string;
 };
 
-const choices: Choice[] = [];
+const STORAGE_KEY = "decideSpinnerChoices";
+
+let choices: Choice[] = [];
 
 const createChoiceId = (): string =>
   `choice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+const isChoice = (value: unknown): value is Choice => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<Choice>;
+  return typeof candidate.id === "string" && typeof candidate.label === "string";
+};
+
+const loadChoices = async (): Promise<Choice[]> => {
+  const stored = await chrome.storage.local.get(STORAGE_KEY);
+  const value = stored[STORAGE_KEY];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isChoice);
+};
+
+const saveChoices = async (): Promise<void> => {
+  await chrome.storage.local.set({ [STORAGE_KEY]: choices });
+};
+
+const persistAndRender = async (
+  listElement: HTMLUListElement,
+  emptyElement: HTMLParagraphElement,
+): Promise<void> => {
+  await saveChoices();
+  renderChoices(listElement, emptyElement);
+};
 
 const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagraphElement): void => {
   listElement.replaceChildren();
@@ -26,6 +60,24 @@ const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagrap
     const label = document.createElement("span");
     label.textContent = choice.label;
 
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "action-button";
+    editButton.setAttribute("aria-label", `${choice.label} を編集`);
+    editButton.textContent = "編集";
+    editButton.addEventListener("click", () => {
+      const nextLabel = window.prompt("選択肢を編集", choice.label)?.trim();
+      if (!nextLabel) {
+        return;
+      }
+
+      const target = choices.find((entry) => entry.id === choice.id);
+      if (target) {
+        target.label = nextLabel;
+        void persistAndRender(listElement, emptyElement);
+      }
+    });
+
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "icon-button";
@@ -35,11 +87,11 @@ const renderChoices = (listElement: HTMLUListElement, emptyElement: HTMLParagrap
       const index = choices.findIndex((entry) => entry.id === choice.id);
       if (index >= 0) {
         choices.splice(index, 1);
-        renderChoices(listElement, emptyElement);
+        void persistAndRender(listElement, emptyElement);
       }
     });
 
-    item.append(label, removeButton);
+    item.append(label, editButton, removeButton);
     listElement.append(item);
   }
 };
@@ -111,7 +163,7 @@ style.textContent = `
 
   .choice-item {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 32px;
+    grid-template-columns: minmax(0, 1fr) auto 32px;
     align-items: center;
     gap: 8px;
     min-height: 36px;
@@ -129,6 +181,15 @@ style.textContent = `
     min-width: 32px;
     min-height: 32px;
     padding: 0;
+    border-color: #c6ced9;
+    background: #ffffff;
+    color: #536172;
+  }
+
+  .action-button {
+    min-width: 44px;
+    min-height: 32px;
+    padding: 0 8px;
     border-color: #c6ced9;
     background: #ffffff;
     color: #536172;
@@ -215,9 +276,15 @@ form.addEventListener("submit", (event) => {
 
   choices.push({ id: createChoiceId(), label });
   input.value = "";
-  renderChoices(choiceList, emptyMessage);
+  void persistAndRender(choiceList, emptyMessage);
   input.focus();
 });
 
 app.append(choicePanel, resultPanel);
-renderChoices(choiceList, emptyMessage);
+
+const initialize = async (): Promise<void> => {
+  choices = await loadChoices();
+  renderChoices(choiceList, emptyMessage);
+};
+
+void initialize();
