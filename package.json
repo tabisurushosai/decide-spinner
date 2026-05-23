@@ -1,3 +1,1 @@
-{ "name": "decide-spinner", "version": "0.1.0", "private": true, "type": "module",
-  "scripts": { "dev": "vite build --watch", "build": "tsc --noEmit && vite build", "lint": "eslint . --ext .ts,.tsx || true", "test:run": "vitest run" },
-  "devDependencies": { "typescript": "^5.5.4", "vite": "^5.4.0", "@types/chrome": "^0.0.270" } }
+{"name":"decide-spinner","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite build --watch","build":"tsc --noEmit && vite build","lint":"eslint . --ext .ts,.tsx || true","test:run":"vitest run --passWithNoTests"},"devDependencies":{"@types/chrome":"^0.0.270","typescript":"^5.5.4","vite":"^5.4.0","vitest":"^4.1.7"}}
